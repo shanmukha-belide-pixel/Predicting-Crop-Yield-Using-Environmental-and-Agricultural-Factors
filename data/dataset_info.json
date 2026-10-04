@@ -1,0 +1,1 @@
+{"total_rows": 13176, "num_countries": 102, "num_crops": 10, "year_range": [1990, 2013], "best_r2": 0.6753, "columns": ["Area", "Item", "Year", "hg/ha_yield", "average_rain_fall_mm_per_year", "pesticides_tonnes", "avg_temp", "yield_tonnes_ha"]}
