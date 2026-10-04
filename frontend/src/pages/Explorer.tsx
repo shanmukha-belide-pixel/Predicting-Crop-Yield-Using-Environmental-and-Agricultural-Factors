@@ -320,7 +320,7 @@ const CorrelationsTab = ({ data }: { data: EdaData }) => {
     });
   });
   
-  const yieldCorrs = flatCorrs.filter(c => c.v1.includes('yield') || c.v2.includes('yield'))
+  const yieldCorrs = flatCorrs.filter(c => c.v1.toLowerCase().includes('yield') || c.v2.toLowerCase().includes('yield'))
     .sort((a, b) => Math.abs(b.val) - Math.abs(a.val));
 
   const getColor = (value: number) => {
@@ -375,8 +375,8 @@ const CorrelationsTab = ({ data }: { data: EdaData }) => {
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-6">Impact on Yield</h3>
           <div className="space-y-3">
             {yieldCorrs.map((corr, idx) => {
-              const varName = corr.v1.includes('yield') ? corr.v2 : corr.v1;
-              const absVal = Math.abs(corr.val);
+              const varName = corr.v1.toLowerCase().includes('yield') ? corr.v2 : corr.v1;
+              const absVal = Math.min(Math.abs(corr.val), 1);
               const width = `${absVal * 100}%`;
               const isPositive = corr.val > 0;
               
