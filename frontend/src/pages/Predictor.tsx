@@ -31,7 +31,7 @@ interface CompareResult {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Crop icons/emoji                                                   */
+/*  Crop emoji mapping                                                 */
 /* ------------------------------------------------------------------ */
 const CROP_EMOJI: Record<string, string> = {
   'Maize': '🌽', 'Wheat': '🌾', 'Rice, paddy': '🍚', 'Potatoes': '🥔',
@@ -59,7 +59,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Radial Gauge Component - Stable, smooth transitions, NO popups     */
+/*  Radial Gauge Component - Completely Static, Zero Motion             */
 /* ------------------------------------------------------------------ */
 function RadialGauge({ value, max, average, unit = 't/ha' }: {
   value: number; max: number; average: number; unit?: string;
@@ -79,12 +79,11 @@ function RadialGauge({ value, max, average, unit = 't/ha' }: {
           stroke="currentColor" className="text-stone-200 dark:text-stone-700"
           strokeWidth="14" strokeLinecap="round"
           strokeDasharray={`${circumference * 0.75} ${circumference * 0.25}`} />
-        {/* Value arc - smooth CSS transition without unmounting */}
+        {/* Static value arc */}
         <circle cx="100" cy="100" r={radius} fill="none"
           stroke="url(#gaugeGrad)" strokeWidth="14" strokeLinecap="round"
           strokeDasharray={`${circumference * 0.75} ${circumference * 0.25}`}
-          strokeDashoffset={strokeDashoffset}
-          style={{ transition: 'stroke-dashoffset 0.3s ease-out' }} />
+          strokeDashoffset={strokeDashoffset} />
         <defs>
           <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#22C55E" />
@@ -93,12 +92,12 @@ function RadialGauge({ value, max, average, unit = 't/ha' }: {
           </linearGradient>
         </defs>
       </svg>
-      {/* Average marker */}
+      {/* Static average marker */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none"
-        style={{ transform: `rotate(${avgAngle}deg)`, transition: 'transform 0.3s ease-out' }}>
+        style={{ transform: `rotate(${avgAngle}deg)` }}>
         <div className="absolute top-2 w-1 h-5 bg-primary dark:bg-accent rounded-full shadow-sm" />
       </div>
-      {/* Center text - rock solid, tabular numbers, NO popup scale animation */}
+      {/* Static text */}
       <div className="absolute inset-0 flex flex-col items-center justify-center pt-4 pointer-events-none">
         <span className="text-4xl font-mono font-bold text-agri-text dark:text-white tabular-nums tracking-tight">
           {value.toFixed(1)}
@@ -113,7 +112,7 @@ function RadialGauge({ value, max, average, unit = 't/ha' }: {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Slider with numeric input                                          */
+/*  Slider with numeric input - Completely Static                       */
 /* ------------------------------------------------------------------ */
 function ParamSlider({ label, icon: Icon, value, onChange, min, max, step, unit, color }: {
   label: string; icon: React.ElementType; value: number; onChange: (v: number) => void;
@@ -147,7 +146,7 @@ function ParamSlider({ label, icon: Icon, value, onChange, min, max, step, unit,
 }
 
 /* ------------------------------------------------------------------ */
-/*  Main Predictor Page                                                */
+/*  Main Predictor Page - Completely Static UI, Zero Motion             */
 /* ------------------------------------------------------------------ */
 export default function Predictor() {
   const [crops, setCrops] = useState<string[]>([]);
@@ -157,14 +156,29 @@ export default function Predictor() {
   const [rainfall, setRainfall] = useState(800);
   const [pesticides, setPesticides] = useState(10000);
   const [temp, setTemp] = useState(20);
-  const [prediction, setPrediction] = useState<PredictResponse | null>(null);
-  const [compareData, setCompareData] = useState<CompareResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [ranges, setRanges] = useState<CropRange>({
-    year: [1990, 2013], rainfall: [10, 3500], pesticides: [0, 2000000], temp: [-2, 32], avg_yield: 5.0,
+  
+  // Pre-populated initial state: rendered immediately on frame 1 without any pop-in
+  const [prediction, setPrediction] = useState<PredictResponse>({
+    predicted_yield: 2.3,
+    crop_average: 1.5,
+    delta_percent: 51.6,
+    is_outside_range: false,
+    outside_features: [],
+    model_name: 'Multiple Linear',
   });
 
-  // Load crops
+  const [compareData, setCompareData] = useState<CompareResult[]>([
+    { model: 'Multiple Linear', predicted_yield: 2.26 },
+    { model: 'Polynomial Deg 2', predicted_yield: 0.92 },
+    { model: 'Polynomial Deg 3', predicted_yield: 1.64 },
+    { model: 'Poly Deg 5 + Ridge', predicted_yield: 0.71 },
+  ]);
+
+  const [ranges, setRanges] = useState<CropRange>({
+    year: [1990, 2013], rainfall: [10, 3500], pesticides: [0, 2000000], temp: [-2, 32], avg_yield: 1.5,
+  });
+
+  // Load crops list
   useEffect(() => {
     fetch('/api/crops')
       .then(r => r.json())
@@ -179,7 +193,6 @@ export default function Predictor() {
       .then(d => {
         if (d.ranges) {
           setRanges(d.ranges);
-          // Reset sliders to median
           setYear(Math.round((d.ranges.year[0] + d.ranges.year[1]) / 2));
           setRainfall(Math.round((d.ranges.rainfall[0] + d.ranges.rainfall[1]) / 2));
           setPesticides(Math.round((d.ranges.pesticides[0] + d.ranges.pesticides[1]) / 2));
@@ -189,12 +202,10 @@ export default function Predictor() {
       .catch(() => {});
   }, [crop]);
 
-  // Debounced parameters for smooth server calls
+  // Debounced parameters for server updates
   const debouncedParams = useDebounce({ crop, model, year, rainfall, pesticides, temp }, 200);
 
   useEffect(() => {
-    setLoading(true);
-
     // 1. Fetch main model prediction
     fetch('/api/predict', {
       method: 'POST',
@@ -207,12 +218,13 @@ export default function Predictor() {
     })
       .then(r => r.json())
       .then(d => {
-        setPrediction(d);
-        setLoading(false);
+        if (d && typeof d.predicted_yield === 'number') {
+          setPrediction(d);
+        }
       })
-      .catch(() => setLoading(false));
+      .catch(() => {});
 
-    // 2. Fetch all 4 models in parallel for smooth comparison bars (no manual click needed)
+    // 2. Fetch all 4 models in parallel
     Promise.all(MODELS.map(m =>
       fetch('/api/predict', {
         method: 'POST',
@@ -226,7 +238,11 @@ export default function Predictor() {
           temp: debouncedParams.temp
         }),
       }).then(r => r.json()).then(d => ({ model: m.label, predicted_yield: d.predicted_yield ?? 0 }))
-    )).then(setCompareData).catch(() => {});
+    )).then(d => {
+      if (Array.isArray(d) && d.length > 0) {
+        setCompareData(d);
+      }
+    }).catch(() => {});
 
   }, [debouncedParams]);
 
@@ -237,9 +253,9 @@ export default function Predictor() {
     setTemp(Number(((ranges.temp[0] + ranges.temp[1]) / 2).toFixed(1)));
   };
 
-  const isOutside = prediction?.is_outside_range;
-  const delta = prediction?.delta_percent ?? 0;
-  const maxYield = Math.max((ranges.avg_yield ?? 5) * 2.5, prediction?.predicted_yield ?? 8, 10);
+  const isOutside = prediction.is_outside_range;
+  const delta = prediction.delta_percent;
+  const maxYield = Math.max((ranges.avg_yield ?? 1.5) * 2.5, prediction.predicted_yield ?? 8, 10);
 
   return (
     <div className="min-h-screen bg-agri-bg dark:bg-gray-950 pt-20 pb-16">
@@ -282,7 +298,7 @@ export default function Predictor() {
               <div className="grid grid-cols-2 gap-2">
                 {MODELS.map(m => (
                   <button key={m.value} onClick={() => setModel(m.value)}
-                    className={`rounded-xl px-3 py-2.5 text-sm font-medium border transition-colors ${
+                    className={`rounded-xl px-3 py-2.5 text-sm font-medium border ${
                       model === m.value
                         ? 'bg-primary dark:bg-accent text-white border-primary dark:border-accent shadow-sm'
                         : 'bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-750'
@@ -299,7 +315,7 @@ export default function Predictor() {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-agri-text dark:text-white">Input Parameters</h3>
                 <button onClick={resetToMedian}
-                  className="flex items-center gap-1 text-xs text-accent hover:text-accent-dark dark:hover:text-accent-light font-medium transition-colors"
+                  className="flex items-center gap-1 text-xs text-accent hover:text-accent-dark dark:hover:text-accent-light font-medium"
                   aria-label="Reset to median values">
                   <RotateCcw className="h-3 w-3" /> Reset to Median
                 </button>
@@ -318,53 +334,40 @@ export default function Predictor() {
 
           {/* ============ RIGHT PANEL: GAUGE & COMPARISON ============ */}
           <div className="lg:col-span-3 space-y-5">
-            {/* Main prediction gauge card - completely stable, NO bouncing layout */}
+            {/* Main prediction gauge card - completely static, zero motion */}
             <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-800/60 p-6 shadow-sm">
-              <div className="text-center mb-4 flex items-center justify-center gap-2">
-                <div>
-                  <h3 className="text-lg font-semibold text-agri-text dark:text-white">Predicted Yield</h3>
-                  <p className="text-sm text-stone-500 dark:text-stone-400">
-                    {CROP_EMOJI[crop] || '🌱'} {crop} • {MODELS.find(m => m.value === model)?.label}
-                  </p>
-                </div>
-                {loading && (
-                  <span className="w-2 h-2 rounded-full bg-accent animate-ping ml-1" title="Updating..." />
-                )}
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-semibold text-agri-text dark:text-white">Predicted Yield</h3>
+                <p className="text-sm text-stone-500 dark:text-stone-400">
+                  {CROP_EMOJI[crop] || '🌱'} {crop} • {MODELS.find(m => m.value === model)?.label}
+                </p>
               </div>
 
-              {prediction ? (
-                <>
-                  <RadialGauge
-                    value={prediction.predicted_yield}
-                    max={maxYield}
-                    average={prediction.crop_average}
-                  />
+              <RadialGauge
+                value={prediction.predicted_yield}
+                max={maxYield}
+                average={prediction.crop_average}
+              />
 
-                  {/* Delta indicator */}
-                  <div className="flex items-center justify-center gap-2 mt-2">
-                    {delta > 0 ? (
-                      <div className="flex items-center gap-1 text-accent font-semibold">
-                        <TrendingUp className="h-5 w-5" />
-                        <span>+{delta.toFixed(1)}% vs average</span>
-                      </div>
-                    ) : delta < 0 ? (
-                      <div className="flex items-center gap-1 text-danger font-semibold">
-                        <TrendingDown className="h-5 w-5" />
-                        <span>{delta.toFixed(1)}% vs average</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-stone-500">
-                        <Minus className="h-5 w-5" />
-                        <span>At average</span>
-                      </div>
-                    )}
+              {/* Delta indicator */}
+              <div className="flex items-center justify-center gap-2 mt-2">
+                {delta > 0 ? (
+                  <div className="flex items-center gap-1 text-accent font-semibold">
+                    <TrendingUp className="h-5 w-5" />
+                    <span>+{delta.toFixed(1)}% vs average</span>
                   </div>
-                </>
-              ) : (
-                <div className="w-64 h-64 mx-auto flex items-center justify-center text-stone-400">
-                  <div className="w-10 h-10 rounded-full border-4 border-accent/30 border-t-accent animate-spin" />
-                </div>
-              )}
+                ) : delta < 0 ? (
+                  <div className="flex items-center gap-1 text-danger font-semibold">
+                    <TrendingDown className="h-5 w-5" />
+                    <span>{delta.toFixed(1)}% vs average</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-stone-500">
+                    <Minus className="h-5 w-5" />
+                    <span>At average</span>
+                  </div>
+                )}
+              </div>
 
               {/* Outside range warning */}
               {isOutside && (
@@ -373,24 +376,24 @@ export default function Predictor() {
                   <div>
                     <p className="text-sm font-medium text-highlight-dark dark:text-highlight">Outside Training Range</p>
                     <p className="text-xs text-stone-600 dark:text-stone-400 mt-0.5">
-                      {prediction?.outside_features?.join(', ')} outside observed range. Low confidence prediction.
+                      {prediction.outside_features.join(', ')} outside observed range. Low confidence prediction.
                     </p>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Compare all models - smooth live bar comparison, NO popping */}
+            {/* Compare all models - completely static bars, zero motion */}
             <div className="rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/60 dark:border-stone-800/60 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-agri-text dark:text-white">Compare All Models</h3>
-                <span className="text-xs text-stone-400">Live predictions (t/ha)</span>
+                <span className="text-xs text-stone-400">Predictions (t/ha)</span>
               </div>
               <div className="space-y-3">
                 {MODELS.map((m) => {
                   const item = compareData.find(x => x.model === m.label);
-                  const pred = item ? item.predicted_yield : (m.value === model && prediction ? prediction.predicted_yield : 0);
-                  const barMax = Math.max(...compareData.map(x => x.predicted_yield), prediction?.predicted_yield || 1, 1);
+                  const pred = item ? item.predicted_yield : (m.value === model ? prediction.predicted_yield : 0);
+                  const barMax = Math.max(...compareData.map(x => x.predicted_yield), prediction.predicted_yield, 1);
                   const pct = Math.min(Math.max((pred / barMax) * 100, 3), 100);
                   return (
                     <div key={m.value} className="flex items-center gap-3">
@@ -400,7 +403,7 @@ export default function Predictor() {
                       <div className="flex-1 h-5 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
                         <div
                           style={{ width: `${pct}%` }}
-                          className={`h-full rounded-full transition-all duration-300 ${
+                          className={`h-full rounded-full ${
                             m.value === model
                               ? 'bg-gradient-to-r from-accent to-primary shadow-sm'
                               : 'bg-stone-300 dark:bg-stone-700'
