@@ -30,35 +30,6 @@ A polished, production-quality full-stack web application that translates regres
 
 ---
 
-## 🏛️ System Architecture
-
-```mermaid
-flowchart TD
-    subgraph Data Layer
-        CSV[("Bundled yield_df.csv\n(13,176 Records, 1990-2013)")]
-        Upload["CSV Upload Endpoint\n(/api/upload-dataset)"]
-    end
-
-    subgraph Backend Engine (FastAPI + scikit-learn + scipy)
-        ML["ML Engine (ml_models.py)\n- Preprocessing & Scalers\n- 12 Regression Pipelines\n- In-Memory Cache per Crop"]
-        Eval["Model Evaluator\n- Random 80/20 Holdout\n- 5-Fold Cross Validation\n- Chronological Time Split"]
-        API["FastAPI REST Endpoints\n- /api/predict\n- /api/models/compare\n- /api/eda\n- /api/scenario\n- /api/surface\n- /api/countries"]
-    end
-
-    subgraph Frontend Client (React + Vite + TypeScript)
-        Nav["Navbar & Shell\n- Shortened Title\n- Theme Toggle (Dark/Light)\n- Report Export Modal"]
-        Views["Interactive Pages\n- Landing / Hero\n- Live Yield Predictor\n- Data Explorer (EDA)\n- Model Lab (Diagnostics)\n- Climate Scenarios (0-3°C)\n- 3D & Immersive Visuals\n- Satellite Context (GIS)\n- Methodology & Viva FAQ"]
-    end
-
-    CSV --> ML
-    Upload --> ML
-    ML --> Eval
-    Eval --> API
-    API <-->|REST JSON| Views
-    Views --> Nav
-```
-
----
 
 ## 🔍 Key Honesty & Scientific Disclaimers
 
